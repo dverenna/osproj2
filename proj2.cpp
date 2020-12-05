@@ -9,6 +9,9 @@
 #include <map>
 #include "Process.h"
 
+// Tge nodes that will make up the double linked list that constitutes our memory
+// they contain an id, the starting and ending memory address (in KB) and a pointer
+// to the previous and next node
 struct Node {
   int id;
   int start;
@@ -17,6 +20,7 @@ struct Node {
   Node* next;
 };
 
+// Front and rear sentinel nodes for our memory list
 Node front;
 Node rear;
 
@@ -42,7 +46,7 @@ int main(){
 }
 
 void simulate(int scenario){
-  //Clear list from previous runs
+  //Clear memory linked list from previous runs
   front.start = 0;
   front.end = 0;
   front.prev = NULL;
@@ -52,6 +56,7 @@ void simulate(int scenario){
   front.id = -1;
   rear.id = -1;
 
+  //Initialize necesssary variables such as the  memory size and procesor speed;
   int remMem = 9999, memSize;
   long long int pSpeed = 3000000000;
   long long int p1Count = 0,p2Count = 0, p3Count = 0,  p4Count = 0;
@@ -64,10 +69,12 @@ void simulate(int scenario){
   queue<Process> resultQueue;
   int procCount = 0;
 
+  // Initialize the seed for the RNG
   mt19937::result_type seed;
   printf("Enter the desired seed for the RNG\n");
   cin >> seed;
 
+  // Initialize the map that will be used to store processes that memory is too fragmented to currently accept
   map<int, bool> fragMap;
 
   // The tuples containing the Process object and the remaining time are initialized with a dummy that will
@@ -78,6 +85,8 @@ void simulate(int scenario){
   tuple<Process, long long int> p3 = make_tuple(dummy, -1);
   tuple<Process, long long int> p4 = make_tuple(dummy, -1);
 
+  // Generate the processes, making sure that no processes takes up too large a chunk of the memory, and allocating
+  // any remaining memory to the final process to make sure that all 10MB is allocated
   srand(seed);
   for (int i = 0; i < 38; i++){
       Process temp = Process(rand(), i, remMem/8);
@@ -88,6 +97,8 @@ void simulate(int scenario){
   temp.setMem(remMem);
   readyQueue.push(temp);
 
+  // Setting the total memory size in KB so that the rear sentinel node of the linked list has the proper value for
+  // each scenario
   if (scenario > 2)
     memSize = scenario == 3 ? 5000 : 1000;
   else
@@ -95,11 +106,37 @@ void simulate(int scenario){
   rear.start = memSize;
   rear.end = memSize;
 
-
+  // Start the timer
   auto start = chrono::high_resolution_clock::now();
 
+  // While the 40 processes have not been completed each of the processors performs the following actions
+  //  -Checks if the processor is currently set to "dummy" and thus waiting for a process to be put on.
+  //   If it is set to dummy, if first checks if the process's total amount of memory required is larger than the amount
+  //   of memory in the system for that scenario. Then, if it has a valid amount of memory it allocates the memory based on
+  //   which of the scenarios is currently in progress.
+  //   - If it is scenario 1, the memory is allocated using malloc() and the address that was allocated is then saved into the
+  //     process object so it can print where it was in memory during it's execution.
+  //   - If it is scenario 2, 3, or 4, the memory is allocated via my_malloc, which places it in a double-linked list
+  //     - If there was not room for the process in the linked list due to fragmentation, its id is placed into the fragMap,
+  //       to denote that it was swapped out once.
+  //       - If the process has already been placed into the fragMap and appears again while the readyQueue is empty, it is
+  //         decided to be skipped since the memory is currently too fragmented to let the process enter and there is nothing
+  //         left to swap it out with
+  //     - Once a process is swappped off, it is placed into a storage queue. A new process is taken off of the ready queue
+  //       and tested if it has space to be allocated currently. This proces repeats until a process that can fit is placed
+  ///      into the system. Once a process is found, the processes from the storage queue are placed back into the ready queue
+  //   - Once a process is found that can fit into the linked list, the location where the process is being stored is loaded
+  //     into the object so it is available for the toString() method
+  //   - Finally, regardless of what allocated the memory the process is loaded into a tuple that also contains burst time
+  //     so the execution can begin
+  //  -Incremements the cycle counter by the processors speed, gets the current remaining time and the process object
+  //   for the process that is currently on the CPU, and decrements the remaining time by the clock speed of the CPU.
+  //   - If the process is not completed at that point, the tuple is updated with the new remaining time.
+  //   - If the process is completed  at that point, the end time is then set to the cycle where the process actually
+  //     ended, and the clock is rolled back to the final cycle of the process. The process is then put into the result
+  //     queue, and the processor is set to having a dummy process so it knows it is ready for a new process. Additionally
+  //     the memory is freed so it can be used by later processes.
   while(procCount != 39){
-    //printf("%d\n", procCount);
     if (get<1>(p1) == -1 && !readyQueue.empty()){
       Process temp = readyQueue.front();
       if (temp.getMem() > memSize){
@@ -116,7 +153,7 @@ void simulate(int scenario){
         } else {
           myMem1 = my_malloc(temp.getID(), temp.getMem());
           if (myMem1 == -1){
-            if (readyQueue.empty()|| fragMap.find(temp.getID())->second){
+            if (readyQueue.empty() || fragMap.find(temp.getID())->second){
               printf("P1: Process %d rejected\n", temp.getID());
               p1 = make_tuple(dummy, -1); // Add dummy back
               procCount++;
@@ -175,7 +212,7 @@ void simulate(int scenario){
         } else {
           myMem2 = my_malloc(temp.getID(), temp.getMem());
           if (myMem2 == -1){
-            if (readyQueue.empty()|| fragMap.find(temp.getID())->second){
+            if (readyQueue.empty() || fragMap.find(temp.getID())->second){
               printf("P2: Process %d rejected\n", temp.getID());
               p2 = make_tuple(dummy, -1); // Add dummy back
               procCount++;
@@ -234,7 +271,7 @@ void simulate(int scenario){
         } else {
           myMem3 = my_malloc(temp.getID(), temp.getMem());
           if (myMem3 == -1){
-            if (readyQueue.empty()|| fragMap.find(temp.getID())->second){
+            if (readyQueue.empty() || fragMap.find(temp.getID())->second){
               printf("P3: Process %d rejected\n", temp.getID());
               p3 = make_tuple(dummy, -1); // Add dummy back
               procCount++;
@@ -339,6 +376,7 @@ void simulate(int scenario){
     }
   }
 
+  // End the timer and print the total time in nanoseconds
   auto end = chrono::high_resolution_clock::now();
   cout << "Total Time: " << chrono::duration_cast<chrono::nanoseconds>(end-start).count() << "ns\n";
 
@@ -352,6 +390,12 @@ void simulate(int scenario){
   printf("\n");
 }
 
+// Since we are using first-fit, my_malloc traverses the double linked list of nodes
+// unit it finds a node where the gap between it's starting memory location and the
+// previous node's ending memory location that is sufficiently large enough to fit
+// the new process. At which point is performs a standard linked list insertion, making
+// sure that the next process starts where the previous process ended and the new process
+// ends reqMem units after it starts.
 int my_malloc(int pid, int reqMem){
   Node* ptr = front.next;
   while(ptr != NULL){
@@ -375,6 +419,7 @@ int my_malloc(int pid, int reqMem){
   return -1;
 }
 
+// Frees the memory by removing the node for the completed process
 void my_free(int pid){
   Node* ptr = &front;
   while(ptr != NULL){
