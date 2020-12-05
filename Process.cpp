@@ -16,6 +16,7 @@ Process::Process(mt19937::result_type seed, int counter, int maxMem){
   memReq =  (rand() % maxMem) + 1;
   burst = burst_rand(gen);
   arrival = 0;
+  memLocat = NULL;
 }
 int Process::getMem(){
   return memReq;
@@ -35,6 +36,9 @@ long long int Process::getEnd(){
 void Process::setMem(int newReq){
   memReq = newReq;
 }
+void Process::setLocat(int* memStart){
+  memLocat = memStart;
+}
 void Process::setArriv(long long int arrTime){
   arrival = arrTime;
 }
@@ -43,6 +47,9 @@ void Process::setEnd(long long int newEnd){
 }
 string Process::toString() const{
   stringstream out;
-  out << "Process ID: " << id  << " Service Time: " << burst << " Memory Required: " << memReq << " Wait Time: " << (end-arrival) - burst << " Total Turnaround Time: " << end - arrival;
+  if (memLocat != NULL)
+    out << "Process ID: " << id  << " Service Time: " << burst << " Memory Required: " << memReq << " Wait Time: " << (end-arrival) - burst << " Total Turnaround Time: " << end - arrival << " Location in Memory: " << memLocat;
+  else
+    out << "Process ID: " << id  << " Service Time: " << burst << " Memory Required: " << memReq << " Wait Time: " << (end-arrival) - burst << " Total Turnaround Time: " << end - arrival << " Not allocated, too large";
   return out.str();
 }
