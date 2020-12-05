@@ -148,8 +148,6 @@ void simulate(int scenario){
         if (scenario == 1){
           memPoint1 = (int*) malloc(temp.getMem()*1000);
           temp.setLocat(memPoint1);
-          p1 = make_tuple(temp, temp.getBurst());
-          readyQueue.pop();
         } else {
           myMem1 = my_malloc(temp.getID(), temp.getMem());
           if (myMem1 == -1){
